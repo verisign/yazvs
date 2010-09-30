@@ -277,9 +277,10 @@ sub sig_is_valid {
 		return Invalid;
 	}
 	if (($exp - $NOW) < ($opts{e} * 86400)) {
-		my $msg = sprintf "%s/%s RRSIG expires in %.1f days",
+		my $msg = sprintf "%s/%s/%d RRSIG expires in %.1f days",
 			$rrsig->name,
 			$rrsig->typecovered,
+			$rrsig->keytag,
 			($exp - $NOW) / 86400;
 		debug($msg);
 		return Expiring;
