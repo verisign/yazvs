@@ -98,7 +98,7 @@ sub candidate {
 	print "Crypto Validation of $ZONE_NAME_PRINTABLE $CANDIDATE_SERIAL\n";
 	print '-' x 70 ."\n";
 	ok("Parsed ". int(@$rrset). " RRs from $file");
-	@ksks = @dnskey_anchors or trusted_ksks(@dnskeys);
+	@ksks = @dnskey_anchors ? @dnskey_anchors : trusted_ksks(@dnskeys);
 	foreach my $rr (@$rrset) {
 		push(@nsset, $rr->nsdname) if 'NS' eq $rr->type && lc($ZONE_NAME) eq lc($rr->name);
 	}
