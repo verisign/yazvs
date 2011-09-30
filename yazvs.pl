@@ -105,8 +105,10 @@ sub candidate {
 	my $x = 0;
 	if (@ksks) {
 		ok(int(@ksks). " trusted KSKs found");
-	} else {
+	} elsif ($opts{a}) {
 		problem("No trusted KSKs found");
+	} else {
+		problem("You didn't supply a trust anchor.  Use -a option");
 	}
 	foreach my $rr (@$rrset) {
 		next unless $rr->type eq 'RRSIG';
