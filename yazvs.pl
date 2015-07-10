@@ -29,7 +29,7 @@ use warnings;
 
 use Net::DNS;
 use Net::DNS::SEC;
-use Net::DNS::ZoneFile::Fast;
+use Net::DNS::ZoneFile;
 use Getopt::Std;
 use File::Temp;
 use Time::Local;
@@ -428,20 +428,27 @@ sub read_anchors {
 
 sub read_zone_file {
 	my $file = shift;
-	return Net::DNS::ZoneFile::Fast::parse(file=>$file) unless $opts{c};
-	die "$file: $!" unless open (F, $file);
 	my @rrs;
-	my $line = 0;
-	while (<F>) {
-		chomp;
-		$line++;
-		s/\s*;.*//;
-		next unless (/./);
-		my $rr = Net::DNS::RR->new($_);
-		die "Failed to parse line $line of $file\n" unless $rr;
-		push(@rrs, $rr);
+	if ($opts{c}) {
+		die "$file: $!" unless open (F, $file);
+		my $line = 0;
+		while (<F>) {
+			chomp;
+			$line++;
+			s/\s*;.*//;
+			next unless (/./);
+			my $rr = Net::DNS::RR->new($_);
+			die "Failed to parse line $line of $file\n" unless $rr;
+			push(@rrs, $rr);
+		}
+		close(F);
+	} else {
+		my $zone = new Net::DNS::ZoneFile($file);
+		die "$file: $!" unless $zone;
+		while (my $rr = $zone->read) {
+			push(@rrs, $rr);
+		}
 	}
-	close(F);
 	return \@rrs;
 }
 
