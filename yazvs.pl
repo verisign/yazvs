@@ -36,7 +36,7 @@ use Switch;
 use List::Compare;
 
 my %opts = (e => 3);
-getopts('a:cdre:t:m:n:u', \%opts) || usage();
+getopts('a:cdre:t:m:n:ux', \%opts) || usage();
 usage() unless @ARGV;
 
 my $NOW = time;
@@ -49,6 +49,7 @@ my @nsset = ();
 my @ds_anchors = read_ds_anchors() if $opts{a};
 my @dnskey_anchors = read_dnskey_anchors() if $opts{a};
 my $nproblems = 0;
+my $minexpiry = 86400*365*10;
 
 my $have_net_dns_zonefile = 0;
 my $have_net_dns_zonefile_fast = 0;
@@ -80,12 +81,13 @@ the currently-being-served zone data.  It performs the following steps:
   3) Outputs a diff of the two copies of the zone, omitting any RRSIG
      NSEC, and NSEC3 records.
 
-usage: $0 -c -d -r -u -a file -e days -t key -n keyname -m master zonefile
+usage: $0 -c -d -r -u -x -a file -e days -t key -n keyname -m master zonefile
 \t-c\t\tzonefile is already "clean" so use alternate parsing
 \t-d\t\tenable debugging
 \t-r\t\treverse (axfr is current, disk file is old)
 \t-u\t\tunix diff of zone files at the end
 \t-a file\t\tfile containing trust anchors
+\t-x\t\tDon't diff with current zone
 \t-e days\t\tcomplain about RRSIGs that expire within days days
 \t-t key\t\tTSIG filename or hash string
 \t-n keyname\tTSIG name if not otherwise given
@@ -100,6 +102,7 @@ sub candidate {
 	my $rrset = read_zone_file ($file);
 	my @dnskeys = ();
 	my @ksks = ();
+	my $rrsigs;
 	@$rrset = canonicalize(@$rrset);
 	foreach my $rr (@$rrset) {
 		$ZONE_NAME_PRINTABLE = $ZONE_NAME = $rr->name if 'SOA' eq $rr->type;
@@ -138,6 +141,10 @@ sub candidate {
 	my $expsigs = 0;
 	foreach my $rr (@$rrset) {
 		next unless 'RRSIG' eq $rr->type;
+		if ($rrsigs->{$rr->name}->{$rr->typecovered}->{$rr->keytag}) {
+			problem("Duplicate RRSIG for ".$rr->name." ".$rr->typecovered." keytag ".$rr->keytag);
+		}
+		$rrsigs->{$rr->name}->{$rr->typecovered}->{$rr->keytag} = 1;
 		switch (sig_is_valid($rr, $rrset, \@dnskeys)) {
 			case Valid	{ $goodsigs++; }
 			case Expiring	{ $expsigs++; }
@@ -145,6 +152,7 @@ sub candidate {
 		}
 	}
 	ok_or_problem(!$expsigs, "$expsigs expiring RRSIGs found");
+	debug(sprintf "Time to first RRSIG expiry: %.1f days", $minexpiry / 86400);
 	ok_or_problem(!$badsigs, "$badsigs bad RRSIGs found");
 	ok_or_problem($goodsigs, "$goodsigs good RRSIGs found");
 	$candidate_rrset = $rrset;
@@ -253,9 +261,11 @@ sub unixdiff {
 }
 
 candidate(shift);
-current();
-internaldiff();
-unixdiff() if $opts{u};
+unless ($opts{x}) {
+	current();
+	internaldiff();
+	unixdiff() if $opts{u};
+}
 
 print "\nValidation for $ZONE_NAME_PRINTABLE $CANDIDATE_SERIAL ",
 	$nproblems ? 'FAILED' : 'PASSED',
@@ -290,7 +300,9 @@ sub sig_is_valid {
 		debug("failed to get expiration time from\n". $rrsig->string);
 		return Invalid;
 	}
-	if (($exp - $NOW) < ($opts{e} * 86400)) {
+	my $tt_exp = $exp - $NOW;	# seconds
+	$minexpiry = $tt_exp if $tt_exp < $minexpiry;
+	if ($tt_exp < ($opts{e} * 86400)) {
 		my $msg = sprintf "%s/%s/%d RRSIG expires in %.1f days",
 			$rrsig->name,
 			$rrsig->typecovered,
@@ -310,6 +322,7 @@ sub sig_is_valid {
 	}
 	#print "Validating ". $rrsig->name. "/". $rrsig->typecovered. " RRSIG\n";
 	foreach my $key (@$dnskeys) {
+		#print "   checking key ". $key->keytag."\n";
 		if ($rrsig->verify(\@data, $key)) {
 			debug("RRSIG/". $rrsig->keytag. " + DNSKEY/". $key->keytag. " signs ". $rrsig->name. "/". $rrsig->typecovered. " RRset");
 			return Valid;
