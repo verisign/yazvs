@@ -29,7 +29,6 @@ use warnings;
 
 use Net::DNS;
 use Net::DNS::SEC;
-use Net::DNS::ZoneFile;
 use Getopt::Std;
 use File::Temp;
 use Time::Local;
@@ -50,6 +49,19 @@ my @nsset = ();
 my @ds_anchors = read_ds_anchors() if $opts{a};
 my @dnskey_anchors = read_dnskey_anchors() if $opts{a};
 my $nproblems = 0;
+
+my $have_net_dns_zonefile = 0;
+my $have_net_dns_zonefile_fast = 0;
+
+if (eval "require Net::DNS::ZoneFile") {
+	Net::DNS::ZoneFile->import;
+	$have_net_dns_zonefile = 1;
+} elsif (eval "require Net::DNS::ZoneFile::Fast") {
+	Net::DNS::ZoneFile::Fast->import;
+	$have_net_dns_zonefile_fast = 1;
+} else {
+	die "$0 requires either Net::DNS::ZoneFile or Net::DNS::ZoneFile::Fast to be installed\n";
+}
 
 use constant {
 	Valid	=> 0,
@@ -428,7 +440,7 @@ sub read_anchors {
 
 sub read_zone_file {
 	my $file = shift;
-	my @rrs;
+	my $rrs;
 	if ($opts{c}) {
 		die "$file: $!" unless open (F, $file);
 		my $line = 0;
@@ -439,17 +451,19 @@ sub read_zone_file {
 			next unless (/./);
 			my $rr = Net::DNS::RR->new($_);
 			die "Failed to parse line $line of $file\n" unless $rr;
-			push(@rrs, $rr);
+			push(@$rrs, $rr);
 		}
 		close(F);
+	} elsif ($have_net_dns_zonefile_fast) {
+		$rrs = Net::DNS::ZoneFile::Fast::parse(file=>$file);
 	} else {
 		my $zone = new Net::DNS::ZoneFile($file);
 		die "$file: $!" unless $zone;
 		while (my $rr = $zone->read) {
-			push(@rrs, $rr);
+			push(@$rrs, $rr);
 		}
 	}
-	return \@rrs;
+	return $rrs;
 }
 
 sub read_ds_anchors {
