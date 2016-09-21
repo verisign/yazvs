@@ -33,7 +33,6 @@ use Getopt::Std;
 use File::Temp;
 use Time::Local;
 use Switch;
-use List::Compare;
 
 my %opts = (e => 3);
 getopts('a:cdre:t:m:n:ux', \%opts) || usage();
@@ -62,6 +61,19 @@ if (eval "require Net::DNS::ZoneFile") {
 	$have_net_dns_zonefile_fast = 1;
 } else {
 	die "$0 requires either Net::DNS::ZoneFile or Net::DNS::ZoneFile::Fast to be installed\n";
+}
+
+my $have_list_compare = 0;
+my $have_set_object = 0;
+
+if (eval "require List::Compare") {
+	List::Compare->import;
+	$have_list_compare = 1;
+} elsif (eval "require Set::Object") {
+	Set::Object->import;
+	$have_set_object = 1;
+} else {
+	die "$0 requires either List::Compare or Set::Object to be installed\n";
 }
 
 use constant {
@@ -232,10 +244,21 @@ sub internaldiff {
 			debug("current   has $t with keytag ". $rr->keytag);
 			push(@b, $rr->string);
 		}
-		my $lc = List::Compare->new(\@a, \@b);
-		my $added = int($lc->get_Lonly);
-		my $removed = int($lc->get_Ronly);
-		my $unchanged = int($lc->get_intersection);
+		my $added;
+		my $removed;
+		my $unchanged;
+		if ($have_list_compare) {
+			my $lc = List::Compare->new(\@a, \@b);
+			$added = int($lc->get_Lonly);
+			$removed = int($lc->get_Ronly);
+			$unchanged = int($lc->get_intersection);
+		} else {
+			my $sa = Set::Object->new(@a);
+			my $sb = Set::Object->new(@b);
+			$added = $sa->difference($sb)->size;
+			$removed = $sb->difference($sa)->size;
+			$unchanged = $sa->intersection($sb)->size;
+		}
 		diff("$t $added added, $removed removed, $unchanged unchanged");
 	
 	}
