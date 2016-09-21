@@ -34,7 +34,7 @@ use File::Temp;
 use Time::Local;
 use Switch;
 
-my %opts = (e => 3);
+my %opts = (e => 10);
 getopts('a:cdre:t:m:n:ux', \%opts) || usage();
 usage() unless @ARGV;
 
