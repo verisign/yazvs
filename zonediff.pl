@@ -25,9 +25,21 @@ use strict;
 use warnings;
 
 use Net::DNS;
-use Net::DNS::ZoneFile::Fast;
 use Getopt::Long;
 use File::Temp;
+
+my $have_net_dns_zonefile = 0;
+my $have_net_dns_zonefile_fast = 0;
+
+if (eval "require Net::DNS::ZoneFile") {
+	Net::DNS::ZoneFile->import;
+	$have_net_dns_zonefile = 1;
+} elsif (eval "require Net::DNS::ZoneFile::Fast") {
+	Net::DNS::ZoneFile::Fast->import;
+	$have_net_dns_zonefile_fast = 1;
+} else {
+	die "$0 requires either Net::DNS::ZoneFile or Net::DNS::ZoneFile::Fast to be installed\n";
+}
 
 my @IGNORE;
 
@@ -46,9 +58,18 @@ EOF
 
 sub read_zone {
 	my $file = shift;
-	my $rrset = Net::DNS::ZoneFile::Fast::parse(file=>$file);
-	@$rrset = canonicalize(@$rrset);
-	return $rrset;
+	my $rrs;
+	if ($have_net_dns_zonefile_fast) {
+		$rrs = Net::DNS::ZoneFile::Fast::parse(file=>$file);
+	} else {
+		my $zone = new Net::DNS::ZoneFile($file);
+		die "$file: $!" unless $zone;
+		while (my $rr = $zone->read) {
+			push(@$rrs, $rr);
+		}
+	}
+	@$rrs = canonicalize(@$rrs);
+	return $rrs;
 }
 
 sub unixdiff {
@@ -56,7 +77,7 @@ sub unixdiff {
 	my $B = shift;
 	my @FILES = ();
 	my $OF;
-	my $TEMPDIR = File::Temp->tempdir("zonediff.XXXXXXXXXXX", CLEANUP=>1);
+	my $TEMPDIR = File::Temp::tempdir("zonediff.XXXXXXXXXXX", CLEANUP=>1);
 	$OF = "$TEMPDIR/old";
 	output_zone($A, $OF);
 	push(@FILES, $OF);
