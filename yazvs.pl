@@ -219,16 +219,16 @@ sub internaldiff {
 		my @a = ();
 		foreach my $rr (@$candidate_rrset) {
 			next unless ($rr->type eq $T);
-			next if 'KSK' eq $t && !$rr->is_sep();
-			next if 'ZSK' eq $t && $rr->is_sep();
+			next if 'KSK' eq $t && !$rr->sep;
+			next if 'ZSK' eq $t && $rr->sep;
 			debug("candidate has $t with keytag ". $rr->keytag);
 			push(@a, $rr->string);
 		}
 		my @b = ();
 		foreach my $rr (@$current_rrset) {
 			next unless ($rr->type eq $T);
-			next if 'KSK' eq $t && !$rr->is_sep();
-			next if 'ZSK' eq $t && $rr->is_sep();
+			next if 'KSK' eq $t && !$rr->sep;
+			next if 'ZSK' eq $t && $rr->sep;
 			debug("current   has $t with keytag ". $rr->keytag);
 			push(@b, $rr->string);
 		}
@@ -281,7 +281,7 @@ sub trusted_ksks {
                         my $msg = sprintf("DS=%d %s DNSKEY=%d%s",
                                 $ds->keytag,
                                 $v ? 'verifies' : 'does not verify',
-                                $dnskey->keytag, $dnskey->is_sep() ? '/SEP' : '',
+                                $dnskey->keytag, $dnskey->sep ? '/SEP' : '',
                                 );
 			debug($msg);
                         last if $v;
