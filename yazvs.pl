@@ -234,7 +234,7 @@ sub internaldiff {
 			next if 'KSK' eq $t && !$rr->sep;
 			next if 'ZSK' eq $t && $rr->sep;
 			debug("candidate has $t with keytag ". $rr->keytag);
-			push(@a, $rr->string);
+			push(@a, lc($rr->string));
 		}
 		my @b = ();
 		foreach my $rr (@$current_rrset) {
@@ -242,7 +242,7 @@ sub internaldiff {
 			next if 'KSK' eq $t && !$rr->sep;
 			next if 'ZSK' eq $t && $rr->sep;
 			debug("current   has $t with keytag ". $rr->keytag);
-			push(@b, $rr->string);
+			push(@b, lc($rr->string));
 		}
 		my $added;
 		my $removed;
