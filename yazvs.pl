@@ -267,7 +267,7 @@ sub internaldiff {
 sub unixdiff {
 	my @FILES = ();
 	my $OF;
-	my $TEMPDIR = File::Temp->tempdir("$ZONE_NAME.tmp.XXXXXXXXXXX", CLEANUP=>$opts{d}?0:1);
+	my $TEMPDIR = File::Temp::tempdir("$ZONE_NAME.tmp.XXXXXXXXXXX", CLEANUP=>$opts{d}?0:1);
 	$OF = "$TEMPDIR/$ZONE_NAME_PRINTABLE.current";
 	output_zone($current_rrset, $OF);
 	push(@FILES, $OF);
