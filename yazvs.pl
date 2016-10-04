@@ -45,8 +45,7 @@ my $CANDIDATE_SERIAL = undef;
 my $candidate_rrset = undef;
 my $current_rrset = undef;
 my @nsset = ();
-my @ds_anchors = read_ds_anchors() if $opts{a};
-my @dnskey_anchors = read_dnskey_anchors() if $opts{a};
+my @ds_anchors = read_anchors($opts{a}) if $opts{a};
 my $nproblems = 0;
 my $minexpiry = 86400*365*10;
 
@@ -125,7 +124,7 @@ sub candidate {
 	print "Crypto Validation of $ZONE_NAME_PRINTABLE $CANDIDATE_SERIAL\n";
 	print '-' x 70 ."\n";
 	ok("Parsed ". int(@$rrset). " RRs from $file");
-	@ksks = @dnskey_anchors ? @dnskey_anchors : trusted_ksks(@dnskeys);
+	@ksks = trusted_ksks(@dnskeys);
 	foreach my $rr (@$rrset) {
 		push(@nsset, $rr->nsdname) if 'NS' eq $rr->type && lc($ZONE_NAME) eq lc($rr->name);
 	}
@@ -450,7 +449,6 @@ sub get_tsig_key {
 }
 
 sub read_anchors {
-	my $type = shift;
 	my $file = shift;
 	my $N = 0;
 	my @anchors = ();
@@ -459,18 +457,22 @@ sub read_anchors {
 			chomp;
 			$N++;
 			my $rr = Net::DNS::RR->new($_);
-			next unless $rr->type eq $type;
+			next unless $rr;
+			# might want to check rr->name here but ZONE_NAME isn't defined yet.
+			next unless 'DS' eq $rr->type || 'DNSKEY' eq $rr->type;
+			if ('DNSKEY' eq $rr->type) {
+				$rr = Net::DNS::RR::DS->create($rr, digtype => 2);
+			}
 			unless (defined $rr->algorithm and $rr->keytag != 0) {
-				warn "Invalid $type record on line $N of $file\n";
+				warn "Invalid $rr->type record on line $N of $file\n";
 				sleep(3);
 				next;
 			}
-
 			push(@anchors, $rr) if $rr;
 		}
 		close(F);
 	}
-	debug("Read ". int(@anchors). " $type trust anchors from ". $file);
+	debug("Read ". int(@anchors). " trust anchors from ". $file);
 	@anchors;
 }
 
@@ -500,14 +502,6 @@ sub read_zone_file {
 		}
 	}
 	return $rrs;
-}
-
-sub read_ds_anchors {
-	read_anchors('DS', $opts{a});
-}
-
-sub read_dnskey_anchors {
-	read_anchors('DNSKEY', $opts{a});
 }
 
 sub ok {
