@@ -124,6 +124,7 @@ sub candidate {
 	print "Crypto Validation of $ZONE_NAME_PRINTABLE $CANDIDATE_SERIAL\n";
 	print '-' x 70 ."\n";
 	ok("Parsed ". int(@$rrset). " RRs from $file");
+	@dnskeys = remove_revoked($rrset, @dnskeys);
 	@ksks = trusted_ksks(@dnskeys);
 	foreach my $rr (@$rrset) {
 		push(@nsset, $rr->nsdname) if 'NS' eq $rr->type && lc($ZONE_NAME) eq lc($rr->name);
@@ -293,6 +294,32 @@ print "\nValidation for $ZONE_NAME_PRINTABLE $CANDIDATE_SERIAL ",
 	$nproblems ? 'FAILED' : 'PASSED',
 	", $nproblems problems\n";
 exit($nproblems ? 1 : 0);
+
+sub remove_revoked {
+	my $rrset = shift;
+	my @dnskeys = @_;
+	#
+	# Take out the revoked keys
+	#
+	my @revoked_dnskeys = ();
+	foreach my $rrsig (@$rrset) {
+		next unless 'RRSIG' eq $rrsig->type;
+		next unless 'DNSKEY' eq $rrsig->typecovered;
+		next unless lc($rrsig->name) eq lc($ZONE_NAME);
+        	foreach my $dnskey (@dnskeys) {
+			if ($dnskey->revoke && Valid == sig_is_valid($rrsig, \@dnskeys, [ $dnskey ])) {
+				ok(sprintf("DNSKEY=%d/%s is REVOKED", $dnskey->keytag, $dnskey->sep ? '/SEP' : ''));
+				push @revoked_dnskeys, $dnskey;
+			}
+		}
+	}
+	return @dnskeys unless @revoked_dnskeys;
+	my @non_revoked = ();
+	foreach my $dnskey (@dnskeys) {
+		push @non_revoked, $dnskey unless grep {$_ == $dnskey} @revoked_dnskeys;
+	}
+	return @non_revoked;
+}
 
 sub trusted_ksks {
 	my @verified_keys = ();
