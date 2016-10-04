@@ -121,7 +121,7 @@ sub candidate {
 		$CANDIDATE_SERIAL = $rr->serial if 'SOA' eq $rr->type;
 		push(@dnskeys, $rr) if 'DNSKEY' eq $rr->type;
 	}
-	$ZONE_NAME_PRINTABLE = 'root' if '' eq $ZONE_NAME_PRINTABLE;
+	$ZONE_NAME_PRINTABLE = 'root' if '.' eq $ZONE_NAME_PRINTABLE;
 	print "Crypto Validation of $ZONE_NAME_PRINTABLE $CANDIDATE_SERIAL\n";
 	print '-' x 70 ."\n";
 	ok("Parsed ". int(@$rrset). " RRs from $file");
@@ -267,18 +267,18 @@ sub internaldiff {
 sub unixdiff {
 	my @FILES = ();
 	my $OF;
-	my $TEMPDIR = File::Temp::tempdir("$ZONE_NAME.tmp.XXXXXXXXXXX", CLEANUP=>$opts{d}?0:1);
+	my $TEMPDIR = File::Temp::tempdir("$ZONE_NAME_PRINTABLE.tmp.XXXXXXXXXXX", CLEANUP=>$opts{d}?0:1);
 	$OF = "$TEMPDIR/$ZONE_NAME_PRINTABLE.current";
 	output_zone($current_rrset, $OF);
 	push(@FILES, $OF);
-	$OF = "$TEMPDIR/$ZONE_NAME.". ($opts{r} ? 'former' : 'candidate');
+	$OF = "$TEMPDIR/$ZONE_NAME_PRINTABLE.". ($opts{r} ? 'former' : 'candidate');
 	output_zone($candidate_rrset, $OF);
 	push(@FILES, $OF);
 	@FILES = reverse @FILES if $opts{r};
 	print "\n";
 	print "Diff Output (excluding RRSIG/NSEC/NSEC3 records)\n";
 	print '-' x 70 ."\n";
-	system "diff -wu ". join(' ', @FILES);
+	system "diff -iwu ". join(' ', @FILES);
 	print "\n";
 	debug("Zone files left in $TEMPDIR");	# true only if -d
 }
@@ -381,8 +381,8 @@ sub output_zone {
 }
 
 sub rrsortfunc {
-	my $namea = join('.',reverse(split/\./, $a->name));
-	my $nameb = join('.',reverse(split/\./, $b->name));
+	my $namea = join('.',reverse(split/\./, lc($a->name)));
+	my $nameb = join('.',reverse(split/\./, lc($b->name)));
 	return $namea cmp $nameb unless $namea eq $nameb;
 	return $a->type cmp $b->type unless $a->type eq $b->type;
 	return $a->rdatastr cmp $b->rdatastr;
