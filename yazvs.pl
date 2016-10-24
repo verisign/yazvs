@@ -35,7 +35,7 @@ use Time::Local;
 use Switch;
 
 my %opts = (e => 10);
-getopts('a:cdre:t:m:n:ux', \%opts) || usage();
+getopts('a:cdre:t:m:n:uxyC:', \%opts) || usage();
 usage() unless @ARGV;
 
 my $NOW = time;
@@ -99,10 +99,12 @@ usage: $0 -c -d -r -u -x -a file -e days -t key -n keyname -m master zonefile
 \t-u\t\tunix diff of zone files at the end
 \t-a file\t\tfile containing trust anchors
 \t-x\t\tDon't diff with current zone
+\t-y\t\tDon't check RRSIGs
 \t-e days\t\tcomplain about RRSIGs that expire within days days
 \t-t key\t\tTSIG filename or hash string
 \t-n keyname\tTSIG name if not otherwise given
 \t-m master\thidden master nameserver
+\t-C zonefile\tload current zone from file instead of axfr
 EOF
 	exit(2);
 }
@@ -157,6 +159,7 @@ sub candidate {
 			problem("Duplicate RRSIG for ".$rr->name." ".$rr->typecovered." keytag ".$rr->keytag);
 		}
 		$rrsigs->{$rr->name}->{$rr->typecovered}->{$rr->keytag} = 1;
+		next if $opts{y};
 		switch (sig_is_valid($rr, $rrset, \@dnskeys)) {
 			case Valid	{ $goodsigs++; }
 			case Expiring	{ $expsigs++; }
@@ -177,38 +180,46 @@ sub current {
 	print "Comparison to current zone\n";
 	print '-' x 70 ."\n";
 	#
-	# set TSIG key if necessary
-	#
-	if ($opts{t}) {
-		my ($n,$t) = get_tsig_key($opts{t});
-		debug("TSIG name=$n, key=$t");
-		$res->tsig($n,$t);
-	}
-	#
-	# if Master was given on the command line...
-	#
-	if ($opts{m}) {
-		@nsset = ();
-		push(@nsset, $opts{m});
-	}
-	#
-	# Attempt AXFR from authoritative nameservers
-	#
-	my $axfr_name = $ZONE_NAME;
-	$axfr_name = '.' if '' eq $ZONE_NAME;
-	foreach my $ns (@nsset) {
-		#debug("Attempting AXFR of $axfr_name from $ns");
- 		$res->nameserver($ns);
-		@rrset = $res->axfr($axfr_name);
-		if (@rrset) {
-			ok("Received ". int(@rrset). " RRs from $ns");
-			last;
+	# Load from file if given
+	# 
+	if ($opts{C}) {
+		my $t_rrset = read_zone_file($opts{C});
+		@rrset = @$t_rrset;
+	} else {
+		#
+		# set TSIG key if necessary
+		#
+		if ($opts{t}) {
+			my ($n,$t) = get_tsig_key($opts{t});
+			debug("TSIG name=$n, key=$t");
+			$res->tsig($n,$t);
 		}
-		debug($ns. ": ". $res->errorstring);
-	}
-	unless (@rrset) {
-		problem("Failed to AXFR $ZONE_NAME_PRINTABLE zone");
-		exit(1);
+		#
+		# if Master was given on the command line...
+		#
+		if ($opts{m}) {
+			@nsset = ();
+			push(@nsset, $opts{m});
+		}
+		#
+		# Attempt AXFR from authoritative nameservers
+		#
+		my $axfr_name = $ZONE_NAME;
+		$axfr_name = '.' if '' eq $ZONE_NAME;
+		foreach my $ns (@nsset) {
+			#debug("Attempting AXFR of $axfr_name from $ns");
+ 			$res->nameserver($ns);
+			@rrset = $res->axfr($axfr_name);
+			if (@rrset) {
+				ok("Received ". int(@rrset). " RRs from $ns");
+				last;
+			}
+			debug($ns. ": ". $res->errorstring);
+		}
+		unless (@rrset) {
+			problem("Failed to AXFR $ZONE_NAME_PRINTABLE zone");
+			exit(1);
+		}
 	}
 	my $serial = undef;
 	foreach my $rr (@rrset) {
