@@ -5,7 +5,7 @@
 # "diff" zone files after excluding certain RR types
 #
 
-# Copyright (C) 2016 VeriSign, Inc
+# Copyright (C) 2017 VeriSign, Inc
 # 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -75,20 +75,18 @@ sub read_zone {
 sub unixdiff {
 	my $A = shift;
 	my $B = shift;
-	my @FILES = ();
-	my $OF;
 	my $TEMPDIR = File::Temp::tempdir("zonediff.XXXXXXXXXXX", CLEANUP=>1);
-	$OF = "$TEMPDIR/old";
+	my $OF = "$TEMPDIR/old";
 	output_zone($A, $OF);
-	push(@FILES, $OF);
-	$OF = "$TEMPDIR/new";
-	output_zone($B, $OF);
-	push(@FILES, $OF);
+	my $NF = "$TEMPDIR/new";
+	output_zone($B, $NF);
 	print "\n";
 	print "Diff Output\n";
 	print '-' x 70 ."\n";
-	system "diff -wu ". join(' ', @FILES);
+	system "diff -wu $OF $NF";
+	my $rc = $? >> 8;
 	print "\n";
+	return($rc);
 }
 
 sub output_zone {
@@ -125,4 +123,4 @@ sub canonicalize {
 usage() unless $#ARGV == 1;
 my $A = read_zone(shift);
 my $B = read_zone(shift);
-unixdiff($A,$B)
+exit unixdiff($A,$B);
