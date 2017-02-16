@@ -250,12 +250,12 @@ sub current {
 
 sub internaldiff {
 	foreach my $t (qw(KSK ZSK RRSIG DS)) {
-		my $T = $t;
-		$T = 'DNSKEY' if 'KSK' eq $t;
-		$T = 'DNSKEY' if 'ZSK' eq $t;
+		my $rrtype = $t;
+		$rrtype = 'DNSKEY' if 'KSK' eq $t;
+		$rrtype = 'DNSKEY' if 'ZSK' eq $t;
 		my @a = ();
 		foreach my $rr (@$candidate_rrset) {
-			next unless ($rr->type eq $T);
+			next unless ($rr->type eq $rrtype);
 			next if 'KSK' eq $t && !$rr->sep;
 			next if 'ZSK' eq $t && $rr->sep;
 			debug("candidate has $t with keytag ". $rr->keytag);
@@ -263,7 +263,7 @@ sub internaldiff {
 		}
 		my @b = ();
 		foreach my $rr (@$current_rrset) {
-			next unless ($rr->type eq $T);
+			next unless ($rr->type eq $rrtype);
 			next if 'KSK' eq $t && !$rr->sep;
 			next if 'ZSK' eq $t && $rr->sep;
 			debug("current   has $t with keytag ". $rr->keytag);
@@ -490,12 +490,12 @@ sub get_tsig_key {
 
 sub read_anchors {
 	my $file = shift;
-	my $N = 0;
+	my $n = 0;
 	my @anchors = ();
 	if (open(F, $file)) {
 		while (<F>) {
 			chomp;
-			$N++;
+			$n++;
 			my $rr = Net::DNS::RR->new($_);
 			next unless $rr;
 			# might want to check rr->name here but zone_name isn't defined yet.
@@ -504,7 +504,7 @@ sub read_anchors {
 				$rr = Net::DNS::RR::DS->create($rr, digtype => 2);
 			}
 			unless (defined $rr->algorithm and $rr->keytag != 0) {
-				warn "Invalid $rr->type record on line $N of $file\n";
+				warn "Invalid $rr->type record on line $n of $file\n";
 				sleep(3);
 				next;
 			}
