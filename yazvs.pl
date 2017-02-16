@@ -6,7 +6,7 @@
 # before they are published.
 #
 
-# Copyright (C) 2016 VeriSign, Inc
+# Copyright (C) 2017 VeriSign, Inc
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -80,6 +80,20 @@ use constant {
 	Expiring => 1,
 	Invalid => 2,
 };
+
+candidate(shift);
+unless ($opts{x}) {
+	current();
+	internaldiff();
+	unixdiff() if $opts{u};
+}
+
+print "\nValidation for $ZONE_NAME_PRINTABLE $CANDIDATE_SERIAL ",
+	$nproblems ? 'FAILED' : 'PASSED',
+	", $nproblems problems\n";
+exit($nproblems ? 1 : 0);
+
+##############################################################################
 
 sub usage {
 print STDERR <<"EOF";
@@ -293,18 +307,6 @@ sub unixdiff {
 	print "\n";
 	debug("Zone files left in $TEMPDIR");	# true only if -d
 }
-
-candidate(shift);
-unless ($opts{x}) {
-	current();
-	internaldiff();
-	unixdiff() if $opts{u};
-}
-
-print "\nValidation for $ZONE_NAME_PRINTABLE $CANDIDATE_SERIAL ",
-	$nproblems ? 'FAILED' : 'PASSED',
-	", $nproblems problems\n";
-exit($nproblems ? 1 : 0);
 
 sub remove_revoked {
 	my $rrset = shift;
