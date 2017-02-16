@@ -38,10 +38,10 @@ my %opts = (e => 10);
 getopts('a:cdre:t:m:n:uxyC:', \%opts) || usage();
 usage() unless @ARGV;
 
-my $NOW = time;
-my $ZONE_NAME = undef;
-my $ZONE_NAME_PRINTABLE = undef;
-my $CANDIDATE_SERIAL = undef;
+my $now = time;
+my $zone_name = undef;
+my $zone_name_printable = undef;
+my $candidate_serial = undef;
 my $candidate_rrset = undef;
 my $current_rrset = undef;
 my @nsset = ();
@@ -88,7 +88,7 @@ unless ($opts{x}) {
 	unixdiff() if $opts{u};
 }
 
-print "\nValidation for $ZONE_NAME_PRINTABLE $CANDIDATE_SERIAL ",
+print "\nValidation for $zone_name_printable $candidate_serial ",
 	$nproblems ? 'FAILED' : 'PASSED',
 	", $nproblems problems\n";
 exit($nproblems ? 1 : 0);
@@ -132,18 +132,18 @@ sub candidate {
 	my $rrsigs;
 	@$rrset = canonicalize(@$rrset);
 	foreach my $rr (@$rrset) {
-		$ZONE_NAME_PRINTABLE = $ZONE_NAME = $rr->name if 'SOA' eq $rr->type;
-		$CANDIDATE_SERIAL = $rr->serial if 'SOA' eq $rr->type;
+		$zone_name_printable = $zone_name = $rr->name if 'SOA' eq $rr->type;
+		$candidate_serial = $rr->serial if 'SOA' eq $rr->type;
 		push(@dnskeys, $rr) if 'DNSKEY' eq $rr->type;
 	}
-	$ZONE_NAME_PRINTABLE = 'root' if '.' eq $ZONE_NAME_PRINTABLE;
-	print "Crypto Validation of $ZONE_NAME_PRINTABLE $CANDIDATE_SERIAL\n";
+	$zone_name_printable = 'root' if '.' eq $zone_name_printable;
+	print "Crypto Validation of $zone_name_printable $candidate_serial\n";
 	print '-' x 70 ."\n";
 	ok("Parsed ". int(@$rrset). " RRs from $file");
 	@dnskeys = remove_revoked($rrset, @dnskeys);
 	@ksks = trusted_ksks(@dnskeys);
 	foreach my $rr (@$rrset) {
-		push(@nsset, $rr->nsdname) if 'NS' eq $rr->type && lc($ZONE_NAME) eq lc($rr->name);
+		push(@nsset, $rr->nsdname) if 'NS' eq $rr->type && lc($zone_name) eq lc($rr->name);
 	}
 	my $x = 0;
 	if (@ksks) {
@@ -155,7 +155,7 @@ sub candidate {
 	}
 	foreach my $rr (@$rrset) {
 		next unless $rr->type eq 'RRSIG';
-		next unless lc($rr->name) eq lc($ZONE_NAME);
+		next unless lc($rr->name) eq lc($zone_name);
 		next unless $rr->typecovered eq 'DNSKEY';
 		$x++ if Valid == sig_is_valid($rr, \@dnskeys, \@ksks);
 	}
@@ -218,8 +218,8 @@ sub current {
 		#
 		# Attempt AXFR from authoritative nameservers
 		#
-		my $axfr_name = $ZONE_NAME;
-		$axfr_name = '.' if '' eq $ZONE_NAME;
+		my $axfr_name = $zone_name;
+		$axfr_name = '.' if '' eq $zone_name;
 		foreach my $ns (@nsset) {
 			#debug("Attempting AXFR of $axfr_name from $ns");
  			$res->nameserver($ns);
@@ -231,7 +231,7 @@ sub current {
 			debug($ns. ": ". $res->errorstring);
 		}
 		unless (@rrset) {
-			problem("Failed to AXFR $ZONE_NAME_PRINTABLE zone");
+			problem("Failed to AXFR $zone_name_printable zone");
 			exit(1);
 		}
 	}
@@ -290,22 +290,22 @@ sub internaldiff {
 }
 
 sub unixdiff {
-	my @FILES = ();
-	my $OF;
-	my $TEMPDIR = File::Temp::tempdir("$ZONE_NAME_PRINTABLE.tmp.XXXXXXXXXXX", CLEANUP=>$opts{d}?0:1);
-	$OF = "$TEMPDIR/$ZONE_NAME_PRINTABLE.current";
-	output_zone($current_rrset, $OF);
-	push(@FILES, $OF);
-	$OF = "$TEMPDIR/$ZONE_NAME_PRINTABLE.". ($opts{r} ? 'former' : 'candidate');
-	output_zone($candidate_rrset, $OF);
-	push(@FILES, $OF);
-	@FILES = reverse @FILES if $opts{r};
+	my @files = ();
+	my $output_file;
+	my $tempdir = File::Temp::tempdir("$zone_name_printable.tmp.XXXXXXXXXXX", CLEANUP=>$opts{d}?0:1);
+	$output_file = "$tempdir/$zone_name_printable.current";
+	output_zone($current_rrset, $output_file);
+	push(@files, $output_file);
+	$output_file = "$tempdir/$zone_name_printable.". ($opts{r} ? 'former' : 'candidate');
+	output_zone($candidate_rrset, $output_file);
+	push(@files, $output_file);
+	@files = reverse @files if $opts{r};
 	print "\n";
 	print "Diff Output (excluding RRSIG/NSEC/NSEC3 records)\n";
 	print '-' x 70 ."\n";
-	system "diff -iwu ". join(' ', @FILES);
+	system "diff -iwu ". join(' ', @files);
 	print "\n";
-	debug("Zone files left in $TEMPDIR");	# true only if -d
+	debug("Zone files left in $tempdir");	# true only if -d
 }
 
 sub remove_revoked {
@@ -318,7 +318,7 @@ sub remove_revoked {
 	foreach my $rrsig (@$rrset) {
 		next unless 'RRSIG' eq $rrsig->type;
 		next unless 'DNSKEY' eq $rrsig->typecovered;
-		next unless lc($rrsig->name) eq lc($ZONE_NAME);
+		next unless lc($rrsig->name) eq lc($zone_name);
         	foreach my $dnskey (@dnskeys) {
 			if ($dnskey->revoke && Valid == sig_is_valid($rrsig, \@dnskeys, [ $dnskey ])) {
 				ok(sprintf("DNSKEY=%d/%s is REVOKED", $dnskey->keytag, $dnskey->sep ? '/SEP' : ''));
@@ -362,14 +362,14 @@ sub sig_is_valid {
 		debug("failed to get expiration time from\n". $rrsig->string);
 		return Invalid;
 	}
-	my $tt_exp = $exp - $NOW;	# seconds
+	my $tt_exp = $exp - $now;	# seconds
 	$minexpiry = $tt_exp if $tt_exp < $minexpiry;
 	if ($tt_exp < ($opts{e} * 86400)) {
 		my $msg = sprintf "%s/%s/%d RRSIG expires in %.1f days",
 			$rrsig->name,
 			$rrsig->typecovered,
 			$rrsig->keytag,
-			($exp - $NOW) / 86400;
+			($exp - $now) / 86400;
 		debug($msg);
 		return Expiring;
 	}
@@ -498,7 +498,7 @@ sub read_anchors {
 			$N++;
 			my $rr = Net::DNS::RR->new($_);
 			next unless $rr;
-			# might want to check rr->name here but ZONE_NAME isn't defined yet.
+			# might want to check rr->name here but zone_name isn't defined yet.
 			next unless 'DS' eq $rr->type || 'DNSKEY' eq $rr->type;
 			if ('DNSKEY' eq $rr->type) {
 				$rr = Net::DNS::RR::DS->create($rr, digtype => 2);

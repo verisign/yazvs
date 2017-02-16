@@ -41,9 +41,9 @@ if (eval "require Net::DNS::ZoneFile") {
 	die "$0 requires either Net::DNS::ZoneFile or Net::DNS::ZoneFile::Fast to be installed\n";
 }
 
-my @IGNORE;
+my @ignore;
 
-usage() unless GetOptions ("ignore=s" => \@IGNORE);
+usage() unless GetOptions ("ignore=s" => \@ignore);
 
 sub usage {
 	print STDERR <<EOF;
@@ -75,15 +75,15 @@ sub read_zone {
 sub unixdiff {
 	my $A = shift;
 	my $B = shift;
-	my $TEMPDIR = File::Temp::tempdir("zonediff.XXXXXXXXXXX", CLEANUP=>1);
-	my $OF = "$TEMPDIR/old";
-	output_zone($A, $OF);
-	my $NF = "$TEMPDIR/new";
-	output_zone($B, $NF);
+	my $tempdir = File::Temp::tempdir("zonediff.XXXXXXXXXXX", CLEANUP=>1);
+	my $oldfile = "$tempdir/old";
+	output_zone($A, $oldfile);
+	my $newfile = "$tempdir/new";
+	output_zone($B, $newfile);
 	print "\n";
 	print "Diff Output\n";
 	print '-' x 70 ."\n";
-	system "diff -wu $OF $NF";
+	system "diff -wu $oldfile $newfile";
 	my $rc = $? >> 8;
 	print "\n";
 	return($rc);
@@ -95,7 +95,7 @@ sub output_zone {
 	open(O, ">$out");
 	select(O);
 	foreach my $rr (@$rrset) {
-		next if grep {$rr->type eq uc($_)} @IGNORE;
+		next if grep {$rr->type eq uc($_)} @ignore;
 		$rr->print;
 	}
 	close(O);
