@@ -44,8 +44,6 @@ use Getopt::Std;
 use File::Temp;
 use Time::Local;
 use POSIX;
-use LWP::UserAgent;
-use XML::Simple;
 use Switch;
 
 my %opts = (e => 10);
@@ -91,15 +89,20 @@ if (eval "require List::Compare") {
 
 my $have_lwp_useragent = 0;
 my $have_xml_simple = 0;
-if (eval 'require LWP::UserAgent') {
-	LWP::UserAgent->import;
-	$have_lwp_useragent = 1;
+my $xml_anchors = undef;
+if ($opts{A}) {
+	if (eval 'require LWP::UserAgent') {
+		LWP::UserAgent->import;
+		$have_lwp_useragent = 1;
+	}
+	if (eval 'require XML::Simple') {
+		XML::Simple->import;
+		$have_xml_simple = 1;
+	}
+	die "$0 -A option requires LWP::UserAgent and XML::Simple.  Make sure both are installed.\n"
+		unless ($have_lwp_useragent && $have_xml_simple);
+	$xml_anchors = read_xml_anchors($opts{A});
 }
-if (eval 'require XML::Simple') {
-	XML::Simple->import;
-	$have_xml_simple = 1;
-}
-my $xml_anchors = read_xml_anchors($opts{A}) if $opts{A};
 
 use constant {
 	Valid	=> 0,
@@ -575,9 +578,6 @@ sub read_anchors {
 }
 
 sub read_xml_anchors {
-	unless ($have_lwp_useragent && $have_xml_simple) {
-		die "$0 -A option requires LWP::UserAgent and XML::Simple.  Make sure both are installed.\n";
-	}
 	my $url = shift;
 	my $ua = LWP::UserAgent->new;
 	$ua->agent("yazvs.pl");
