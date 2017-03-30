@@ -43,10 +43,13 @@ use Net::DNS::SEC;
 use Getopt::Std;
 use File::Temp;
 use Time::Local;
+use POSIX;
+use LWP::UserAgent;
+use XML::Simple;
 use Switch;
 
 my %opts = (e => 10);
-getopts('a:cdre:t:m:n:uxyC:', \%opts) || usage();
+getopts('A:a:cdre:t:m:n:uxyC:', \%opts) || usage();
 usage() unless @ARGV;
 
 my $now = time;
@@ -86,6 +89,18 @@ if (eval "require List::Compare") {
 	die "$0 requires either List::Compare or Set::Object to be installed\n";
 }
 
+my $have_lwp_useragent = 0;
+my $have_xml_simple = 0;
+if (eval 'require LWP::UserAgent') {
+	LWP::UserAgent->import;
+	$have_lwp_useragent = 1;
+}
+if (eval 'require XML::Simple') {
+	XML::Simple->import;
+	$have_xml_simple = 1;
+}
+my $xml_anchors = read_xml_anchors($opts{A}) if $opts{A};
+
 use constant {
 	Valid	=> 0,
 	Expiring => 1,
@@ -123,6 +138,7 @@ usage: $0 -c -d -r -u -x -a file -e days -t key -n keyname -m master zonefile
 \t-r\t\treverse (axfr is current, disk file is old)
 \t-u\t\tunix diff of zone files at the end
 \t-a file\t\tfile containing trust anchors
+\t-A url\t\tURL containing trust anchors
 \t-x\t\tDon't diff with current zone
 \t-y\t\tDon't check RRSIGs
 \t-e days\t\tcomplain about RRSIGs that expire within days days
@@ -346,21 +362,52 @@ sub remove_revoked {
 }
 
 sub trusted_ksks {
-	my @verified_keys = ();
+	my @ds_verified_keys = ();
         foreach my $dnskey (@_) {
                 foreach my $ds (@ds_anchors) {
                         my $v = $ds->verify($dnskey);
-                        push(@verified_keys, $dnskey) if $v;
+                        push(@ds_verified_keys, $dnskey) if $v;
                         my $msg = sprintf("DS=%d %s DNSKEY=%d%s",
                                 $ds->keytag,
                                 $v ? 'verifies' : 'does not verify',
                                 $dnskey->keytag, $dnskey->sep ? '/SEP' : '',
                                 );
-			debug($msg);
+			$v ? ok($msg) : debug($msg);
                         last if $v;
                 }
         }
-	return @verified_keys;
+	#
+	# if there are no XML anchors then just return the DS verified anchors
+	#
+	return @ds_verified_keys unless $xml_anchors;
+	my @xml_verified_keys;
+	problem("XML anchors are for zone '". $xml_anchors->{Zone}. "' but candidate is zone '$zone_name'")
+		unless lc($xml_anchors->{Zone}) eq lc($zone_name);
+	foreach my $dnskey (@ds_verified_keys) {
+		foreach my $id (keys %{$xml_anchors->{KeyDigest}}) {
+			my $h = $xml_anchors->{KeyDigest}->{$id};
+			# this time format matches IANA root-anchors.xml
+			my $now_strftime = POSIX::strftime('%Y-%m-%dT%H:%M:%S+00:00', gmtime(time));
+			next if $h->{validFrom} ge $now_strftime;
+			my $ds = new Net::DNS::RR(join(' ',
+				$xml_anchors->{Zone},
+				'DS',
+				$h->{KeyTag},
+				$h->{Algorithm},
+				$h->{DigestType},
+				$h->{Digest}));
+			my $v = $ds->verify($dnskey);
+                        push(@xml_verified_keys, $dnskey) if $v;
+                        my $msg = sprintf("XML Anchor ID '%s' %s DNSKEY=%d%s",
+                                $id,
+                                $v ? 'verifies' : 'does not verify',
+                                $dnskey->keytag, $dnskey->sep ? '/SEP' : '',
+                                );
+			$v ? ok($msg) : debug($msg);
+			last if $v;
+		}
+	}
+	return @xml_verified_keys;
 }
 
 sub sig_is_valid {
@@ -525,6 +572,22 @@ sub read_anchors {
 	}
 	debug("Read ". int(@anchors). " trust anchors from ". $file);
 	@anchors;
+}
+
+sub read_xml_anchors {
+	unless ($have_lwp_useragent && $have_xml_simple) {
+		die "$0 -A option requires LWP::UserAgent and XML::Simple.  Make sure both are installed.\n";
+	}
+	my $url = shift;
+	my $ua = LWP::UserAgent->new;
+	$ua->agent("yazvs.pl");
+	my $req = HTTP::Request->new(GET => $url);
+	my $res = $ua->request($req);
+	die $res->status_line unless $res->is_success;
+	die "Expected '$url' content-type to be text/xml but got ".$res->content_type unless 'text/xml' eq $res->content_type;
+	my $xs = XML::Simple->new;
+	my $ref = $xs->XMLin($res->content);
+	return $ref;
 }
 
 sub read_zone_file {
