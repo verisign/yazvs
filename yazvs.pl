@@ -586,7 +586,7 @@ sub read_xml_anchors {
 	die $res->status_line unless $res->is_success;
 	die "Expected '$url' content-type to be text/xml but got ".$res->content_type unless 'text/xml' eq $res->content_type;
 	my $xs = XML::Simple->new;
-	my $ref = $xs->XMLin($res->content);
+	my $ref = $xs->XMLin($res->content, ForceArray => ['KeyDigest']);
 	return $ref;
 }
 
