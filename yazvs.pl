@@ -359,6 +359,7 @@ sub remove_revoked {
 		next unless 'DNSKEY' eq $rrsig->typecovered;
 		next unless lc($rrsig->name) eq lc($zone_name);
         	foreach my $dnskey (@dnskeys) {
+			next unless $rrsig->keytag == $dnskey->keytag;
 			if ($dnskey->revoke && Valid == sig_is_valid($rrsig, \@dnskeys, [ $dnskey ])) {
 				ok(dnskey_str($dnskey). " is REVOKED");
 				push @revoked_dnskeys, $dnskey;
@@ -454,6 +455,7 @@ sub sig_is_valid {
 	}
 	#print "Validating ". $rrsig->name. "/". $rrsig->typecovered. " ". rrsig_str($rrsig). "\n";
 	foreach my $key (@$dnskeys) {
+		next unless $key->keytag == $rrsig->keytag;
 		if ($key->revoke) {
 			next unless 'DNSKEY' eq $rrsig->typecovered;
 		}
