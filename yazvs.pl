@@ -170,8 +170,7 @@ sub candidate {
 	print "Crypto Validation of $zone_name_printable $candidate_serial\n";
 	print '-' x 70 ."\n";
 	ok("Parsed ". int(@$rrset). " RRs from $file");
-	@dnskeys = remove_revoked($rrset, @dnskeys);
-	@ksks = trusted_ksks(@dnskeys);
+	@ksks = trusted_ksks(remove_revoked($rrset, @dnskeys));
 	foreach my $rr (@$rrset) {
 		push(@nsset, $rr->nsdname) if 'NS' eq $rr->type && lc($zone_name) eq lc($rr->name);
 	}
@@ -187,7 +186,7 @@ sub candidate {
 		next unless $rr->type eq 'RRSIG';
 		next unless lc($rr->name) eq lc($zone_name);
 		next unless $rr->typecovered eq 'DNSKEY';
-		$x++ if Valid == sig_is_valid($rr, \@dnskeys, \@ksks);
+		$x++ if Valid == sig_is_valid($rr, \@dnskeys, \@dnskeys);
 	}
 	unless ($x) {
 		problem("Cannot validate DNSKEY RRset with KSKs");
@@ -445,6 +444,9 @@ sub sig_is_valid {
 	}
 	#print "Validating ". $rrsig->name. "/". $rrsig->typecovered. " RRSIG\n";
 	foreach my $key (@$dnskeys) {
+		if ($key->revoke) {
+			next unless 'DNSKEY' eq $rrsig->typecovered;
+		}
 		#print "   checking key ". $key->keytag."\n";
 		if ($rrsig->verify(\@data, $key)) {
 			debug("RRSIG/". $rrsig->keytag. " + DNSKEY/". $key->keytag. " signs ". $rrsig->name. "/". $rrsig->typecovered. " RRset");
