@@ -153,6 +153,16 @@ EOF
 	exit(2);
 }
 
+sub rrsig_str {
+	my $rrsig = shift;
+	"RRSIG=". $rrsig->keytag;
+}
+
+sub dnskey_str {
+	my $dnskey = shift;
+	"DNSKEY=". $dnskey->keytag. ($dnskey->sep ? '/SEP' : '');
+}
+
 
 sub candidate {
 	my $file = shift;
@@ -350,7 +360,7 @@ sub remove_revoked {
 		next unless lc($rrsig->name) eq lc($zone_name);
         	foreach my $dnskey (@dnskeys) {
 			if ($dnskey->revoke && Valid == sig_is_valid($rrsig, \@dnskeys, [ $dnskey ])) {
-				ok(sprintf("DNSKEY=%d/%s is REVOKED", $dnskey->keytag, $dnskey->sep ? '/SEP' : ''));
+				ok(dnskey_str($dnskey). " is REVOKED");
 				push @revoked_dnskeys, $dnskey;
 			}
 		}
@@ -369,10 +379,10 @@ sub trusted_ksks {
                 foreach my $ds (@ds_anchors) {
                         my $v = $ds->verify($dnskey);
                         push(@ds_verified_keys, $dnskey) if $v;
-                        my $msg = sprintf("DS=%d %s DNSKEY=%d%s",
+                        my $msg = sprintf("DS=%d %s %s",
                                 $ds->keytag,
                                 $v ? 'verifies' : 'does not verify',
-                                $dnskey->keytag, $dnskey->sep ? '/SEP' : '',
+                                dnskey_str($dnskey),
                                 );
 			$v ? ok($msg) : debug($msg);
                         last if $v;
@@ -400,10 +410,10 @@ sub trusted_ksks {
 				$h->{Digest}));
 			my $v = $ds->verify($dnskey);
                         push(@xml_verified_keys, $dnskey) if $v;
-                        my $msg = sprintf("XML Anchor ID '%s' %s DNSKEY=%d%s",
+                        my $msg = sprintf("XML Anchor ID '%s' %s %s",
                                 $id,
                                 $v ? 'verifies' : 'does not verify',
-                                $dnskey->keytag, $dnskey->sep ? '/SEP' : '',
+                                dnskey_str($dnskey),
                                 );
 			$v ? ok($msg) : debug($msg);
 			last if $v;
@@ -442,14 +452,14 @@ sub sig_is_valid {
 		debug("Didn't find any ". $rrsig->name. "/". $rrsig->typecoverred. " RRs");
 		return Invalid;
 	}
-	#print "Validating ". $rrsig->name. "/". $rrsig->typecovered. " RRSIG\n";
+	#print "Validating ". $rrsig->name. "/". $rrsig->typecovered. " ". rrsig_str($rrsig). "\n";
 	foreach my $key (@$dnskeys) {
 		if ($key->revoke) {
 			next unless 'DNSKEY' eq $rrsig->typecovered;
 		}
 		#print "   checking key ". $key->keytag."\n";
 		if ($rrsig->verify(\@data, $key)) {
-			debug("RRSIG/". $rrsig->keytag. " + DNSKEY/". $key->keytag. " signs ". $rrsig->name. "/". $rrsig->typecovered. " RRset");
+			debug(rrsig_str($rrsig). " + ". dnskey_str($key). " signs ". $rrsig->name. "/". $rrsig->typecovered. " RRset");
 			return Valid;
 		}
 		#debug($rrsig->vrfyerrstr);
