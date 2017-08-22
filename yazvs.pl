@@ -180,6 +180,10 @@ sub candidate {
 	print "Crypto Validation of $zone_name_printable $candidate_serial\n";
 	print '-' x 70 ."\n";
 	ok("Parsed ". int(@$rrset). " RRs from $file");
+	debug(sprintf "%d DNSKEYs in zone", int(@dnskeys));
+	foreach my $rr (@dnskeys) {
+		debug(dnskey_str($rr));
+	}
 	@ksks = trusted_ksks(remove_revoked($rrset, @dnskeys));
 	foreach my $rr (@$rrset) {
 		push(@nsset, $rr->nsdname) if 'NS' eq $rr->type && lc($zone_name) eq lc($rr->name);
