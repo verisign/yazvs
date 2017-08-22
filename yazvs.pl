@@ -223,10 +223,14 @@ sub candidate {
 			case Invalid	{ $badsigs++; }
 		}
 	}
-	ok_or_problem(!$expsigs, "$expsigs expiring RRSIGs found");
-	debug(sprintf "Time to first RRSIG expiry: %.1f days", $minexpiry / 86400);
-	ok_or_problem(!$badsigs, "$badsigs bad RRSIGs found");
-	ok_or_problem($goodsigs, "$goodsigs good RRSIGs found");
+	if ($opts{y}) {
+		ok("RRSIG processing skipped with -y option");
+	} else {
+		ok_or_problem(!$expsigs, "$expsigs expiring RRSIGs found");
+		debug(sprintf "Time to first RRSIG expiry: %.1f days", $minexpiry / 86400);
+		ok_or_problem(!$badsigs, "$badsigs bad RRSIGs found");
+		ok_or_problem($goodsigs, "$goodsigs good RRSIGs found");
+	}
 	$candidate_rrset = $rrset;
 }
 
