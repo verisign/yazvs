@@ -1,0 +1,1 @@
+test-010-algorithm-003-succeed.sh

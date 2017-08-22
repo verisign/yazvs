@@ -1,0 +1,11 @@
+.	86400	IN	SOA	( rname mname
+				1		;serial
+				1800		;refresh
+				900		;retry
+				604800		;expire
+				86400		;minimum
+	)
+.	518400	IN	TXT	"dummy zone"
+.	518400	IN	NS	x.root-servers.net.
+x.root-servers.net.	518400	IN	A	127.0.0.1
+x.root-servers.net.	518400	IN	AAAA	::1
