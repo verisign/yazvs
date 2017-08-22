@@ -5,7 +5,7 @@ TD=`mktemp -d work-XXXXXXXXXXXXXX`
 cd $TD
 trap 'cd .. ; rm -rf $TD' EXIT
 
-# KSK
+# KSK, trusted
 dnssec-keygen -a 8 -b 2048 -n ZONE -f KSK .
 cat *.key | perl ../dnskey-to-ds.pl > trust
 

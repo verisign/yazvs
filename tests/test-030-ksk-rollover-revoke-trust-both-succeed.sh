@@ -5,14 +5,17 @@ TD=`mktemp -d work-XXXXXXXXXXXXXX`
 cd $TD
 trap 'cd .. ; rm -rf $TD' EXIT
 
-# old KSK
+# old KSK, retired and to be revoked
 dnssec-keygen -a 8 -b 2048 -n ZONE -f KSK -I now .
 KN=`basename *.key .key`
 
-# new KSK
+# new KSK, used for signing
 dnssec-keygen -a 8 -b 2048 -n ZONE -f KSK .
+
+# both new KSK and pre-revoked old KSK are trustd
 cat *.key | perl ../dnskey-to-ds.pl > trust
 
+# revoke old KSK
 dnssec-revoke -r $KN
 
 # ZSK

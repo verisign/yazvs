@@ -12,6 +12,7 @@ cat *.key | perl ../dnskey-to-ds.pl > trust
 # ZSK
 dnssec-keygen -a 8 -b 2048 -n ZONE .
 
+# modify an A record after signing
 dnssec-signzone -S -o . -f - -x ../zone.unsigned \
 | sed -e 's/127\.0\.0\.1/127.127.127.127/g' \
 > zone.signed

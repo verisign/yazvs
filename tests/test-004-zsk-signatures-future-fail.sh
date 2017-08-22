@@ -12,6 +12,7 @@ cat *.key | perl ../dnskey-to-ds.pl > trust
 # ZSK
 dnssec-keygen -a 8 -b 2048 -n ZONE .
 
+# force signatures to be in the future
 NOW=`date +%s`
 SIG_START_T=`expr $NOW + 1296000`
 SIG_END_T=`expr $NOW + 2592000`

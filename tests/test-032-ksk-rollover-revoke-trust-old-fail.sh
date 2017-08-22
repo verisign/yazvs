@@ -5,10 +5,12 @@ TD=`mktemp -d work-XXXXXXXXXXXXXX`
 cd $TD
 trap 'cd .. ; rm -rf $TD' EXIT
 
-# old KSK
+# old KSK, trusted
 dnssec-keygen -a 8 -b 2048 -n ZONE -f KSK -I now .
-cat *.key | perl ../dnskey-to-ds.pl > trust
 KN=`basename *.key .key`
+cat *.key | perl ../dnskey-to-ds.pl > trust
+
+# revoke old KSK
 dnssec-revoke -r $KN
 
 # new KSK

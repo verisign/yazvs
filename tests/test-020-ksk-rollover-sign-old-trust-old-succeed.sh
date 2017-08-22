@@ -5,11 +5,11 @@ TD=`mktemp -d work-XXXXXXXXXXXXXX`
 cd $TD
 trap 'cd .. ; rm -rf $TD' EXIT
 
-# old KSK
+# old KSK, trusted
 dnssec-keygen -a 8 -b 2048 -n ZONE -f KSK .
 cat *.key | perl ../dnskey-to-ds.pl > trust
 
-# new KSK
+# new KSK, not in trust anchor, published but not used for signing
 dnssec-keygen -a 8 -b 2048 -n ZONE -f KSK -P now -A +10d .
 
 # ZSK
