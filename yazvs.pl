@@ -196,7 +196,7 @@ sub candidate {
 		next unless $rr->type eq 'RRSIG';
 		next unless lc($rr->name) eq lc($zone_name);
 		next unless $rr->typecovered eq 'DNSKEY';
-		$x++ if Valid == sig_is_valid($rr, \@dnskeys, \@dnskeys);
+		$x++ if Valid == sig_is_valid($rr, \@dnskeys, \@ksks);
 	}
 	unless ($x) {
 		problem("Cannot validate DNSKEY RRset with KSKs");
