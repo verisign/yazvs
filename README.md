@@ -37,17 +37,20 @@ Validation for root 2010071501 PASSED, 0 problems
 
 ## Usage
 ```
-usage: yazvs.pl -c -d -r -u -a file -e days -t key -n keyname -m master zonefile
+usage: yazvs.pl -c -d -r -u -x -a file -e days -t key -n keyname -m master zonefile
         -c              zonefile is already "clean" so use alternate parsing
         -d              enable debugging
         -r              reverse (axfr is current, disk file is old)
         -u              unix diff of zone files at the end
         -a file         file containing trust anchors
-        -A url          URL containing IANA-style trust anchors
+        -A url          URL containing trust anchors
+        -x              Don't diff with current zone
+        -y              Don't check RRSIGs
         -e days         complain about RRSIGs that expire within days days
         -t key          TSIG filename or hash string
         -n keyname      TSIG name if not otherwise given
         -m master       hidden master nameserver
+        -C zonefile     load current zone from file instead of axfr
 ```
 
 The default value for the _-e_ option is 10 days.
@@ -62,6 +65,9 @@ If the _-A_ option is given, the script fetches the URL
 expected to contain XML-formatted trust anchors, such as the one
 IANA publishes for the root zone.  The in-zone KSKs are then further
 validated against the XML trust anchors.
+
+If the _-x_ option is given, the script only verifies input 
+zone and omits any comparison to the current zone.
 
 ## Requirements
 
