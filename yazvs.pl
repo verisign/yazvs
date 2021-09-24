@@ -580,6 +580,8 @@ sub read_anchors {
 	if (open(F, $file)) {
 		while (<F>) {
 			chomp;
+			s/;.*//;
+			next unless /./;
 			$n++;
 			my $rr = Net::DNS::RR->new($_);
 			next unless $rr;
