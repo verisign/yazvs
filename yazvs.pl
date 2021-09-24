@@ -193,6 +193,8 @@ sub candidate {
 		ok(int(@ksks). " trusted KSKs found");
 	} elsif ($opts{a}) {
 		problem("No trusted KSKs found");
+	} elsif ($opts{y}) {
+		debug("Trusted KSKs not required due to -y");
 	} else {
 		problem("You didn't supply a trust anchor.  Use -a option");
 	}
