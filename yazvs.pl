@@ -657,11 +657,12 @@ sub problem {
 
 sub ok_or_problem {
 	my $ok = shift;
-	my $msg = shift;
+	my $msg_ok = shift;
+	my $msg_pr = shift;
 	if ($ok) {
-		ok($msg);
+		ok($msg_ok);
 	} else {
-		problem($msg);
+		problem($msg_pr ? $msg_pr : $msg_ok);
 	}
 }
 
