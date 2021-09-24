@@ -47,14 +47,14 @@ use POSIX;
 use Switch;
 use Digest;
 
-# Net::DNS version 1.23 is required for ZONEMD implementation that
-# matches RFC 8976
-#
-Net::DNS->VERSION('1.23'); 
-
 my %opts = (e => 10);
 getopts('A:a:cdre:t:m:n:uxyC:Z', \%opts) || usage();
 usage() unless @ARGV;
+
+# Net::DNS version 1.23 is required for ZONEMD implementation that
+# matches RFC 8976
+#
+Net::DNS->VERSION('1.23') if $opts{Z};
 
 my $now = time;
 my $zone_name = undef;
