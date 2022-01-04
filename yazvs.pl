@@ -248,8 +248,8 @@ sub candidate {
 	my $expsigs = 0;
 	foreach my $rr (@$rrset) {
 		foreach my $dt (keys %$zonemds) {
-			next if 'ZONEMD' eq $rr->type && $rr->name eq $zone_name;
-			next if 'RRSIG' eq $rr->type && 'ZONEMD' eq $rr->typecovered && $rr->name eq $zone_name;
+			next if 'ZONEMD' eq $rr->type && lc($rr->name) eq lc($zone_name);
+			next if 'RRSIG' eq $rr->type && 'ZONEMD' eq $rr->typecovered && lc($rr->name) eq lc($zone_name);
 			debug("ZONEMD add: ". $rr->string);
 			debug(unpack('H*', $rr->canonical));
 			$zonemds->{$dt}->{md}->add($rr->canonical);
