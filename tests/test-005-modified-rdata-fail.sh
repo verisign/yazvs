@@ -6,11 +6,11 @@ cd $TD
 trap 'cd .. ; rm -rf $TD' EXIT
 
 # KSK
-dnssec-keygen -a 8 -b 2048 -n ZONE -f KSK .
+dnssec-keygen -r /dev/urandom -a 8 -b 2048 -n ZONE -f KSK .
 cat *.key | perl ../dnskey-to-ds.pl > trust
 
 # ZSK
-dnssec-keygen -a 8 -b 2048 -n ZONE .
+dnssec-keygen -r /dev/urandom -a 8 -b 2048 -n ZONE .
 
 # modify an A record after signing
 dnssec-signzone -S -o . -f - -x ../zone.unsigned \
