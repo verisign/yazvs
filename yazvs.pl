@@ -233,6 +233,10 @@ sub candidate {
 					case 2 {
 						$zonemds->{$dt}->{md} = Digest->new('SHA-512');
 					}
+					case [240..254] {
+						ok("Ignoring ZONEMD RR with private use hash algorithm $dt");
+						delete $zonemds->{$dt};
+					}
 					else {
 						problem("Unsupported ZONEMD digest type $dt");
 						delete $zonemds->{$dt};
