@@ -51,6 +51,7 @@ usage: yazvs.pl -c -d -r -u -x -a file -e days -t key -n keyname -m master zonef
         -n keyname      TSIG name if not otherwise given
         -m master       hidden master nameserver
         -C zonefile     load current zone from file instead of axfr
+        -Z              verify ZONEMD record
 ```
 
 The default value for the _-e_ option is 10 days.
@@ -68,6 +69,9 @@ validated against the XML trust anchors.
 
 If the _-x_ option is given, the script only verifies input 
 zone and omits any comparison to the current zone.
+
+If the _-Z_ option is given, the script verifies ZONEMD
+records found in the zone.
 
 ## Requirements
 

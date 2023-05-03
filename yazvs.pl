@@ -45,10 +45,16 @@ use File::Temp;
 use Time::Local;
 use POSIX;
 use Switch;
+use Digest;
 
 my %opts = (e => 10);
-getopts('A:a:cdre:t:m:n:uxyC:', \%opts) || usage();
+getopts('A:a:cdre:t:m:n:uxyC:Z', \%opts) || usage();
 usage() unless @ARGV;
+
+# Net::DNS version 1.23 is required for ZONEMD implementation that
+# matches RFC 8976
+#
+Net::DNS->VERSION('1.23') if $opts{Z};
 
 my $now = time;
 my $zone_name = undef;
@@ -58,6 +64,7 @@ my $candidate_rrset = undef;
 my $current_rrset = undef;
 my @nsset = ();
 my @ds_anchors = read_anchors($opts{a}) if $opts{a};
+my $soa = undef;
 my $nproblems = 0;
 my $minexpiry = 86400*365*10;
 
@@ -149,6 +156,7 @@ usage: $0 -c -d -r -u -x -a file -e days -t key -n keyname -m master zonefile
 \t-n keyname\tTSIG name if not otherwise given
 \t-m master\thidden master nameserver
 \t-C zonefile\tload current zone from file instead of axfr
+\t-Z\t\tverify ZONEMD record
 EOF
 	exit(2);
 }
@@ -169,6 +177,7 @@ sub candidate {
 	my $rrset = read_zone_file ($file);
 	my @dnskeys = ();
 	my @ksks = ();
+	my $zonemds = ();
 	my $rrsigs;
 	@$rrset = canonicalize(@$rrset);
 	foreach my $rr (@$rrset) {
@@ -186,13 +195,17 @@ sub candidate {
 	}
 	@ksks = trusted_ksks(remove_revoked($rrset, @dnskeys));
 	foreach my $rr (@$rrset) {
-		push(@nsset, $rr->nsdname) if 'NS' eq $rr->type && lc($zone_name) eq lc($rr->name);
+		next unless lc($zone_name) eq lc($rr->name);
+		push(@nsset, $rr->nsdname) if 'NS' eq $rr->type;
+		$zonemds->{$rr->algorithm}->{rr} = $rr if 'ZONEMD' eq $rr->type;
 	}
 	my $x = 0;
 	if (@ksks) {
 		ok(int(@ksks). " trusted KSKs found");
 	} elsif ($opts{a}) {
 		problem("No trusted KSKs found");
+	} elsif ($opts{y}) {
+		debug("Trusted KSKs not required due to -y");
 	} else {
 		problem("You didn't supply a trust anchor.  Use -a option");
 	}
@@ -202,15 +215,49 @@ sub candidate {
 		next unless $rr->typecovered eq 'DNSKEY';
 		$x++ if Valid == sig_is_valid($rr, \@dnskeys, \@ksks);
 	}
-	unless ($x) {
+	if ($opts{y}) {
+		debug("DNSKEY RRset validation not required due to -y");
+	} elsif (0 == $x) {
 		problem("Cannot validate DNSKEY RRset with KSKs");
 	} else {
 		ok("Apex DNSKEY RRset validated");
+	}
+	if ($opts{Z}) {
+		if (keys %$zonemds) {
+			ok(int(keys %$zonemds). " ZONEMD records found with digest types: " . join(',', keys %$zonemds));
+			foreach my $dt (keys %$zonemds) {
+				switch ($dt) {
+					case 1 {
+						$zonemds->{$dt}->{md} = Digest->new('SHA-384');
+					}
+					case 2 {
+						$zonemds->{$dt}->{md} = Digest->new('SHA-512');
+					}
+					case [240..254] {
+						ok("Ignoring ZONEMD RR with private use hash algorithm $dt");
+						delete $zonemds->{$dt};
+					}
+					else {
+						problem("Unsupported ZONEMD digest type $dt");
+						delete $zonemds->{$dt};
+					}
+				}
+			}
+		} else {
+			problem("No ZONEMD records found");
+		}
 	}
 	my $goodsigs = 0;
 	my $badsigs = 0;
 	my $expsigs = 0;
 	foreach my $rr (@$rrset) {
+		foreach my $dt (keys %$zonemds) {
+			next if 'ZONEMD' eq $rr->type && lc($rr->name) eq lc($zone_name);
+			next if 'RRSIG' eq $rr->type && 'ZONEMD' eq $rr->typecovered && lc($rr->name) eq lc($zone_name);
+			debug("ZONEMD add: ". $rr->string);
+			debug(unpack('H*', $rr->canonical));
+			$zonemds->{$dt}->{md}->add($rr->canonical);
+		}
 		next unless 'RRSIG' eq $rr->type;
 		if ($rrsigs->{$rr->name}->{$rr->typecovered}->{$rr->keytag}) {
 			problem("Duplicate RRSIG for ".$rr->name." ".$rr->typecovered." keytag ".$rr->keytag);
@@ -230,6 +277,13 @@ sub candidate {
 		debug(sprintf "Time to first RRSIG expiry: %.1f days", $minexpiry / 86400);
 		ok_or_problem(!$badsigs, "$badsigs bad RRSIGs found");
 		ok_or_problem($goodsigs, "$goodsigs good RRSIGs found");
+	}
+	foreach my $dt (keys %$zonemds) {
+		my $givn = $zonemds->{$dt}->{rr}->digest;
+		my $calc = $zonemds->{$dt}->{md}->hexdigest;
+		debug("Given ZONEMD $givn");
+		debug("Calc  ZONEMD $calc");
+		ok_or_problem($givn eq $calc, "ZONEMD type $dt matches", "ZONEMD type $dt does NOT match");
 	}
 	$candidate_rrset = $rrset;
 }
@@ -506,8 +560,8 @@ sub rrsortfunc {
 	my $namea = join('.',reverse(split/\./, lc($a->name)));
 	my $nameb = join('.',reverse(split/\./, lc($b->name)));
 	return $namea cmp $nameb unless $namea eq $nameb;
-	return $a->type cmp $b->type unless $a->type eq $b->type;
-	return $a->rdatastr cmp $b->rdatastr;
+	return Net::DNS::Parameters::typebyname($a->type) <=> Net::DNS::Parameters::typebyname($b->type) unless $a->type eq $b->type;
+	return $a->rdata cmp $b->rdata;
 }
 
 sub canonicalize {
@@ -578,6 +632,8 @@ sub read_anchors {
 	if (open(F, $file)) {
 		while (<F>) {
 			chomp;
+			s/;.*//;
+			next unless /./;
 			$n++;
 			my $rr = Net::DNS::RR->new($_);
 			next unless $rr;
@@ -653,11 +709,12 @@ sub problem {
 
 sub ok_or_problem {
 	my $ok = shift;
-	my $msg = shift;
+	my $msg_ok = shift;
+	my $msg_pr = shift;
 	if ($ok) {
-		ok($msg);
+		ok($msg_ok);
 	} else {
-		problem($msg);
+		problem($msg_pr ? $msg_pr : $msg_ok);
 	}
 }
 

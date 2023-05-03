@@ -1,0 +1,1 @@
+test-040-zonemd-algorithm-001-good-succeed.sh
