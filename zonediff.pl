@@ -5,7 +5,7 @@
 # "diff" zone files after excluding certain RR types
 #
 
-# Copyright (c) 2017, Verisign, Inc.
+# Copyright (c) 2023, Verisign, Inc.
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without

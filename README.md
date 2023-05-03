@@ -95,5 +95,5 @@ zone files after optionally excluding certain record types.
 
 ## Copyright and License
 
-yazvs.pl and zonediff.pl are Copyright 2017 by Verisign, Inc and
+yazvs.pl and zonediff.pl are Copyright 2023 by Verisign, Inc and
 licensed under the terms of the BSD 3-Clause License.
