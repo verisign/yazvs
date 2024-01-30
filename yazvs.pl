@@ -465,7 +465,14 @@ sub trusted_ksks {
 			my $h = $xml_anchors->{KeyDigest}->{$id};
 			# this time format matches IANA root-anchors.xml
 			my $now_strftime = POSIX::strftime('%Y-%m-%dT%H:%M:%S+00:00', gmtime(time));
-			next if $h->{validFrom} ge $now_strftime;
+			if (defined($h->{validFrom}) && $h->{validFrom} ge $now_strftime) {
+				debug("Ignoring XML Anchor ID '$id' which becomes valid at ".$h->{validFrom});
+				next;
+			}
+			if (defined($h->{validUntil}) && $h->{validUntil} le $now_strftime) {
+				debug("Ignoring XML Anchor ID '$id' which was valid until ".$h->{validUntil});
+				next;
+			}
 			my $ds = new Net::DNS::RR(join(' ',
 				$xml_anchors->{Zone},
 				'DS',
