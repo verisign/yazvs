@@ -280,12 +280,14 @@ sub candidate {
 		ok_or_problem(!$badsigs, "$badsigs bad RRSIGs found");
 		ok_or_problem($goodsigs, "$goodsigs good RRSIGs found");
 	}
-	foreach my $dt (keys %$zonemds) {
-		my $givn = $zonemds->{$dt}->{rr}->digest;
-		my $calc = $zonemds->{$dt}->{md}->hexdigest;
-		debug("Given ZONEMD $givn");
-		debug("Calc  ZONEMD $calc");
-		ok_or_problem($givn eq $calc, "ZONEMD type $dt matches", "ZONEMD type $dt does NOT match");
+	if ($opts{Z}) {
+		foreach my $dt (keys %$zonemds) {
+			my $givn = $zonemds->{$dt}->{rr}->digest;
+			my $calc = $zonemds->{$dt}->{md}->hexdigest;
+			debug("Given ZONEMD $givn");
+			debug("Calc  ZONEMD $calc");
+			ok_or_problem($givn eq $calc, "ZONEMD type $dt matches", "ZONEMD type $dt does NOT match");
+		}
 	}
 	$candidate_rrset = $rrset;
 }
