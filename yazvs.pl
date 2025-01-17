@@ -215,12 +215,12 @@ sub candidate {
 		next unless $rr->typecovered eq 'DNSKEY';
 		$x++ if Valid == sig_is_valid($rr, \@dnskeys, \@ksks);
 	}
-	if ($opts{y}) {
-		debug("DNSKEY RRset validation not required due to -y");
+	if ($x > 0) {
+		ok("Apex DNSKEY RRset validated");
+	} elsif ($opts{y}) {
+		debug("Cannot validate DNSKEY RRset with KSKs; ignoring due to -y");
 	} elsif (0 == $x) {
 		problem("Cannot validate DNSKEY RRset with KSKs");
-	} else {
-		ok("Apex DNSKEY RRset validated");
 	}
 	if ($opts{Z}) {
 		if (keys %$zonemds) {
