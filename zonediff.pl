@@ -119,7 +119,7 @@ sub rrsortfunc {
 	my $nameb = join('.',reverse(split/\./, $b->name));
 	return $namea cmp $nameb unless $namea eq $nameb;
 	return $a->type cmp $b->type unless $a->type eq $b->type;
-	return $a->rdatastr cmp $b->rdatastr;
+	return $a->rdstring cmp $b->rdstring;
 }
 
 sub canonicalize {
